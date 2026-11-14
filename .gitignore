@@ -1,0 +1,6 @@
+logs/*.log
+ssh_keys/id_rsa
+ssh_keys/id_rsa.pub
+__pycache__/
+*.pyc
+.DS_Store

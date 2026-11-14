@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# Miniature Cloud CLI (Nova / OpenStack style management CLI)
+# Run from ctrl-node or host
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+AUDIT_LOG="/var/log/minicloud/audit.log"
+
+log() {
+    echo -e "$1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$AUDIT_LOG" 2>/dev/null || true
+}
+
+usage() {
+    echo "Miniature Cloud Management Tool (cloud-cli)"
+    echo "Usage:"
+    echo "  cloud-cli nodes               List compute nodes and current telemetry metrics"
+    echo "  cloud-cli launch <name> <ram> Launch a new workload instance (invokes Filter Scheduler)"
+    echo "  cloud-cli list                List active instances across all compute nodes"
+    echo "  cloud-cli stop <node> <name>  Terminate an instance on a compute node"
+    echo "  cloud-cli audit               View real-time security & scheduling audit trail"
+    echo "  cloud-cli stress <node> <mb>  Simulate high memory load on a node (to demo scheduler adaptation)"
+    echo "  cloud-cli unstress <node>     Release artificial load on a node"
+    exit 1
+}
+
+cmd="$1"
+
+case "$cmd" in
+    nodes)
+        echo "=========================================================================================="
+        printf "%-12s %-16s %-12s %-12s %-14s %-10s\n" "NODE" "IP ADDRESS" "STATUS" "FREE RAM" "CPU UTIL" "INSTANCES"
+        echo "=========================================================================================="
+        for ip in 192.168.100.21 192.168.100.22; do
+            METRICS=$(ssh -o ConnectTimeout=2 -o BatchMode=yes root@$ip "cat /opt/minicloud/metrics.json 2>/dev/null" || echo "")
+            if [ -n "$METRICS" ]; then
+                NODE=$(echo "$METRICS" | jq -r '.node')
+                FREE_RAM="$(echo "$METRICS" | jq -r '.mem_available_mb') MB"
+                CPU_UTIL="$(echo "$METRICS" | jq -r '.cpu_util_pct') %"
+                INSTANCES=$(echo "$METRICS" | jq -r '.active_instances')
+                STATUS="ONLINE"
+            else
+                NODE="compute-unknown"
+                FREE_RAM="N/A"
+                CPU_UTIL="N/A"
+                INSTANCES="0"
+                STATUS="OFFLINE"
+            fi
+            printf "%-12s %-16s %-12s %-12s %-14s %-10s\n" "$NODE" "$ip" "$STATUS" "$FREE_RAM" "$CPU_UTIL" "$INSTANCES"
+        done
+        echo "=========================================================================================="
+        ;;
+
+    launch)
+        NAME="$2"
+        RAM="$3"
+        [ -z "$NAME" ] && NAME="instance-$(date +%s | tail -c 4)"
+        [ -z "$RAM" ] && RAM=128
+
+        echo "[API] Received launch request: Instance '$NAME' with ${RAM}MB RAM."
+        DECISION=$(python3 "$DIR/scheduler.py" "$NAME" "$RAM")
+        STATUS=$?
+
+        if [ $STATUS -ne 0 ] || [ -z "$DECISION" ]; then
+            echo "[API-ERROR] Scheduling failed. Review audit log for details."
+            exit 1
+        fi
+
+        TARGET_IP=$(echo "$DECISION" | jq -r '.node_ip')
+        TARGET_NODE=$(echo "$DECISION" | jq -r '.node_name')
+        WEIGHT=$(echo "$DECISION" | jq -r '.weight')
+
+        echo "[DISPATCH] Assigning instance '$NAME' to $TARGET_NODE ($TARGET_IP) [Score: $WEIGHT]..."
+        
+        # Provision workload container/namespace instance on target compute host via SSH
+        ssh root@$TARGET_IP <<EOF
+mkdir -p /opt/minicloud/instances/$NAME
+cat <<EON > /opt/minicloud/instances/$NAME/meta.json
+{
+  "instance_name": "$NAME",
+  "ram_mb": $RAM,
+  "launched_at": "$(date '+%Y-%m-%d %H:%M:%S')",
+  "node": "$TARGET_NODE"
+}
+EON
+# Launch micro-workload process in isolated background cgroup/namespace
+nohup sh -c 'while true; do sleep 3600; done' >/dev/null 2>&1 &
+echo \$! > /opt/minicloud/instances/$NAME/pid
+EOF
+
+        log "[$(date '+%Y-%m-%d %H:%M:%S')] [INSTANCE_ACTIVE] Instance '$NAME' successfully launched on $TARGET_NODE"
+        echo "[SUCCESS] Instance '$NAME' is running on $TARGET_NODE."
+        ;;
+
+    list)
+        echo "=========================================================================================="
+        printf "%-16s %-14s %-10s %-20s %-8s\n" "INSTANCE" "NODE" "RAM (MB)" "LAUNCH TIME" "PID"
+        echo "=========================================================================================="
+        for ip in 192.168.100.21 192.168.100.22; do
+            ssh -o ConnectTimeout=2 root@$ip '
+                for dir in /opt/minicloud/instances/*; do
+                    if [ -d "$dir" ] && [ -f "$dir/meta.json" ]; then
+                        INST=$(jq -r .instance_name "$dir/meta.json")
+                        NODE=$(jq -r .node "$dir/meta.json")
+                        RAM=$(jq -r .ram_mb "$dir/meta.json")
+                        TIME=$(jq -r .launched_at "$dir/meta.json")
+                        PID=$(cat "$dir/pid" 2>/dev/null || echo "-")
+                        printf "%-16s %-14s %-10s %-20s %-8s\n" "$INST" "$NODE" "$RAM" "$TIME" "$PID"
+                    fi
+                done
+            ' 2>/dev/null
+        done
+        echo "=========================================================================================="
+        ;;
+
+    stop)
+        NODE="$2"
+        NAME="$3"
+        if [ -z "$NODE" ] || [ -z "$NAME" ]; then
+            echo "Usage: cloud-cli stop <compute-01|compute-02> <instance_name>"
+            exit 1
+        fi
+        TARGET_IP="192.168.100.21"
+        [ "$NODE" == "compute-02" ] && TARGET_IP="192.168.100.22"
+
+        ssh root@$TARGET_IP <<EOF
+if [ -d "/opt/minicloud/instances/$NAME" ]; then
+    PID=\$(cat "/opt/minicloud/instances/$NAME/pid" 2>/dev/null)
+    [ -n "\$PID" ] && kill -9 "\$PID" 2>/dev/null || true
+    rm -rf "/opt/minicloud/instances/$NAME"
+    echo "Terminated instance $NAME"
+else
+    echo "Instance $NAME not found on $NODE"
+fi
+EOF
+        log "[$(date '+%Y-%m-%d %H:%M:%S')] [INSTANCE_TERMINATED] Instance '$NAME' removed from $NODE."
+        ;;
+
+    stress)
+        NODE="$2"
+        MB="$3"
+        [ -z "$MB" ] && MB=500
+        TARGET_IP="192.168.100.21"
+        [ "$NODE" == "compute-02" ] && TARGET_IP="192.168.100.22"
+
+        echo "[STRESS] Simulating ${MB}MB memory and CPU load on $NODE..."
+        ssh root@$TARGET_IP "python3 -c 'import time; a = bytearray($MB * 1024 * 1024); time.sleep(300)' >/dev/null 2>&1 &"
+        echo "[STRESS] Load injected. Re-run 'cloud-cli nodes' or schedule a new instance to observe placement change."
+        ;;
+
+    unstress)
+        NODE="$2"
+        TARGET_IP="192.168.100.21"
+        [ "$NODE" == "compute-02" ] && TARGET_IP="192.168.100.22"
+
+        echo "[UNSTRESS] Clearing stress processes on $NODE..."
+        ssh root@$TARGET_IP "pkill -f 'bytearray' 2>/dev/null || true"
+        echo "[UNSTRESS] Node recovered."
+        ;;
+
+    audit)
+        echo "--- Security & Scheduler Audit Trail (/var/log/minicloud/audit.log) ---"
+        tail -n 25 "$AUDIT_LOG"
+        ;;
+
+    *)
+        usage
+        ;;
+esac

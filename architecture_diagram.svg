@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 780" width="100%" height="100%">
+  <defs>
+    <style>
+      .title { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 24px; font-weight: bold; fill: #1e293b; }
+      .subtitle { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; fill: #64748b; }
+      .box-title { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: bold; fill: #0f172a; }
+      .label { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #334155; }
+      .code { font-family: 'Courier New', Courier, monospace; font-size: 12px; fill: #0369a1; }
+      .badge { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; fill: #ffffff; }
+      .conn-label { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; fill: #475569; font-weight: 500; }
+    </style>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#16a34a" />
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#dc2626" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="780" fill="#f8fafc" />
+
+  <!-- Title Header -->
+  <text x="40" y="45" class="title">Miniature Multi-Node Cloud Architecture (Track A)</text>
+  <text x="40" y="70" class="subtitle">Cloud Computing Technologies | 1 Controller Node + 2 Compute Nodes with OpenStack Filter Scheduler Emulation</text>
+
+  <!-- MANAGEMENT PLANE (SUBNET 192.168.100.0/24) -->
+  <rect x="35" y="95" width="1030" height="425" rx="14" fill="#f0f9ff" stroke="#bae6fd" stroke-width="2" />
+  <rect x="50" y="105" width="280" height="26" rx="6" fill="#0284c7" />
+  <text x="60" y="123" class="badge">MANAGEMENT NETWORK (192.168.100.0/24)</text>
+
+  <!-- Controller Node Box -->
+  <g transform="translate(60, 150)" filter="url(#shadow)">
+    <rect width="280" height="340" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 270 0 Q 280 0 280 10 L 280 40 L 0 40 Z" fill="#e0f2fe" />
+    <text x="15" y="26" class="box-title">Controller Node (ctrl-node)</text>
+    <text x="15" y="60" class="code">IP: 192.168.100.10</text>
+    
+    <!-- Sub-components inside Controller -->
+    <rect x="15" y="80" width="250" height="50" rx="6" fill="#f8fafc" stroke="#e2e8f0" />
+    <text x="25" y="100" class="label" font-weight="bold">Management CLI</text>
+    <text x="25" y="118" class="code">cloud-cli (API &amp; Admin)</text>
+
+    <rect x="15" y="140" width="250" height="70" rx="6" fill="#eff6ff" stroke="#bfdbfe" />
+    <text x="25" y="160" class="label" font-weight="bold">Custom Filter Scheduler</text>
+    <text x="25" y="178" class="code">RamFilter + CpuFilter</text>
+    <text x="25" y="195" class="code">Weigher: W_ram * R + W_cpu * C</text>
+
+    <rect x="15" y="220" width="250" height="45" rx="6" fill="#f8fafc" stroke="#e2e8f0" />
+    <text x="25" y="240" class="label" font-weight="bold">SSH Key Trust Manager</text>
+    <text x="25" y="255" class="code">id_rsa / authorized_keys</text>
+
+    <rect x="15" y="275" width="250" height="45" rx="6" fill="#fff1f2" stroke="#fecdd3" />
+    <text x="25" y="295" class="label" font-weight="bold">Central Audit Log</text>
+    <text x="25" y="310" class="code">/var/log/minicloud/audit.log</text>
+  </g>
+
+  <!-- Compute Node 1 Box -->
+  <g transform="translate(410, 150)" filter="url(#shadow)">
+    <rect width="290" height="340" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 280 0 Q 290 0 290 10 L 290 40 L 0 40 Z" fill="#f0fdf4" />
+    <text x="15" y="26" class="box-title">Compute Node 1 (compute-01)</text>
+    <text x="15" y="60" class="code">Mgmt IP: 192.168.100.21 | Guest: 10.0.1.21</text>
+
+    <rect x="15" y="80" width="260" height="50" rx="6" fill="#f8fafc" stroke="#e2e8f0" />
+    <text x="25" y="100" class="label" font-weight="bold">Telemetry Agent</text>
+    <text x="25" y="118" class="code">agent.sh (/proc/meminfo, loadavg)</text>
+
+    <rect x="15" y="140" width="260" height="50" rx="6" fill="#fef2f2" stroke="#fee2e2" />
+    <text x="25" y="160" class="label" font-weight="bold">Security Groups (iptables)</text>
+    <text x="25" y="178" class="code">DROP Guest -> Mgmt SSH (Port 22)</text>
+
+    <rect x="15" y="200" width="260" height="120" rx="6" fill="#f8fafc" stroke="#cbd5e1" />
+    <text x="25" y="222" class="label" font-weight="bold">Active Guest Workloads</text>
+    <rect x="25" y="235" width="240" height="35" rx="4" fill="#ecfdf5" stroke="#a7f3d0" />
+    <text x="35" y="257" class="code">Instance: web-01 [128MB RAM]</text>
+    <rect x="25" y="275" width="240" height="35" rx="4" fill="#f1f5f9" stroke="#e2e8f0" />
+    <text x="35" y="297" class="code">Instance: worker-01 [256MB RAM]</text>
+  </g>
+
+  <!-- Compute Node 2 Box -->
+  <g transform="translate(745, 150)" filter="url(#shadow)">
+    <rect width="290" height="340" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 280 0 Q 290 0 290 10 L 290 40 L 0 40 Z" fill="#f0fdf4" />
+    <text x="15" y="26" class="box-title">Compute Node 2 (compute-02)</text>
+    <text x="15" y="60" class="code">Mgmt IP: 192.168.100.22 | Guest: 10.0.1.22</text>
+
+    <rect x="15" y="80" width="260" height="50" rx="6" fill="#f8fafc" stroke="#e2e8f0" />
+    <text x="25" y="100" class="label" font-weight="bold">Telemetry Agent</text>
+    <text x="25" y="118" class="code">agent.sh (/proc/meminfo, loadavg)</text>
+
+    <rect x="15" y="140" width="260" height="50" rx="6" fill="#fef2f2" stroke="#fee2e2" />
+    <text x="25" y="160" class="label" font-weight="bold">Security Groups (iptables)</text>
+    <text x="25" y="178" class="code">DROP Guest -> Mgmt SSH (Port 22)</text>
+
+    <rect x="15" y="200" width="260" height="120" rx="6" fill="#f8fafc" stroke="#cbd5e1" />
+    <text x="25" y="222" class="label" font-weight="bold">Active Guest Workloads</text>
+    <rect x="25" y="235" width="240" height="35" rx="4" fill="#ecfdf5" stroke="#a7f3d0" />
+    <text x="35" y="257" class="code">Instance: web-02 [128MB RAM]</text>
+    <rect x="25" y="275" width="240" height="35" rx="4" fill="#f1f5f9" stroke="#e2e8f0" />
+    <text x="35" y="297" class="code">Instance: db-cache [512MB RAM]</text>
+  </g>
+
+  <!-- Data Flow Arrows in Management Plane -->
+  <!-- 1. Telemetry Query -->
+  <path d="M 340 240 L 410 240" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow-blue)" />
+  <text x="345" y="230" class="conn-label">1. SSH Poll</text>
+  
+  <path d="M 340 200 L 745 200" stroke="#0284c7" stroke-width="2" stroke-dasharray="4" marker-end="url(#arrow-blue)" />
+  <text x="350" y="190" class="conn-label">1. SSH Poll</text>
+
+  <!-- 2. Workload Dispatch -->
+  <path d="M 340 270 L 410 270" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)" />
+  <text x="345" y="290" class="conn-label">2. Launch</text>
+
+  <!-- GUEST TENANT NETWORK (10.0.1.0/24) -->
+  <rect x="35" y="550" width="1030" height="190" rx="14" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="2" />
+  <rect x="50" y="560" width="250" height="26" rx="6" fill="#16a34a" />
+  <text x="60" y="578" class="badge">GUEST TENANT NETWORK (10.0.1.0/24)</text>
+
+  <g transform="translate(60, 600)">
+    <rect width="980" height="120" rx="8" fill="#ffffff" stroke="#cbd5e1" />
+    <text x="20" y="30" class="box-title">Inter-Instance Communication &amp; Security Boundary</text>
+    <text x="20" y="55" class="label">• Workloads communicate across compute nodes over isolated 10.0.1.0/24 subnet (HTTP, ICMP).</text>
+    <text x="20" y="80" class="label" fill="#dc2626" font-weight="bold">• Security Isolation: iptables blocks all guest packets targeting Controller SSH (192.168.100.10:22).</text>
+    <text x="20" y="102" class="code">Rule: iptables -A INPUT -s 10.0.1.0/24 -p tcp --dport 22 -j DROP (Logged to /var/log/minicloud/audit.log)</text>
+  </g>
+
+  <!-- Red Security Block Line -->
+  <path d="M 550 550 L 200 490" stroke="#dc2626" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrow-red)" />
+  <rect x="340" y="505" width="160" height="22" rx="4" fill="#fee2e2" stroke="#fca5a5" />
+  <text x="348" y="520" class="code" fill="#dc2626" font-weight="bold">BLOCKED &amp; LOGGED</text>
+</svg>
