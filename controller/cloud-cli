@@ -65,7 +65,7 @@ case "$cmd" in
         [ -z "$RAM" ] && RAM=128
 
         echo "[API] Received launch request: Instance '$NAME' with ${RAM}MB RAM."
-        DECISION=$(python3 "$SCHEDULER_BIN" "$NAME" "$RAM")
+        DECISION=$(python3 "$SCHEDULER_BIN" "$NAME" "$RAM" 2>>"$AUDIT_LOG")
         STATUS=$?
 
         if [ $STATUS -ne 0 ] || [ -z "$DECISION" ]; then
@@ -73,9 +73,14 @@ case "$cmd" in
             exit 1
         fi
 
-        TARGET_IP=$(echo "$DECISION" | jq -r '.node_ip')
-        TARGET_NODE=$(echo "$DECISION" | jq -r '.node_name')
-        WEIGHT=$(echo "$DECISION" | jq -r '.weight')
+        TARGET_IP=$(echo "$DECISION" | jq -r '.node_ip // empty')
+        TARGET_NODE=$(echo "$DECISION" | jq -r '.node_name // empty')
+        WEIGHT=$(echo "$DECISION" | jq -r '.weight // empty')
+
+        if [ -z "$TARGET_IP" ]; then
+            echo "[API-ERROR] Could not extract valid target node from scheduler output: $DECISION"
+            exit 1
+        fi
 
         echo "[DISPATCH] Assigning instance '$NAME' to $TARGET_NODE ($TARGET_IP) [Score: $WEIGHT]..."
         

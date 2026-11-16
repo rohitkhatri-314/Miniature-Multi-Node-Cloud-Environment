@@ -27,7 +27,7 @@ CONFIG_FILE = "/opt/controller/scheduler.conf"
 def log_audit(event_type, message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     formatted_msg = f"[{timestamp}] [{event_type}] {message}"
-    print(formatted_msg)
+    print(formatted_msg, file=sys.stderr)
     try:
         os.makedirs(os.path.dirname(AUDIT_LOG), exist_ok=True)
         with open(AUDIT_LOG, "a") as f:
