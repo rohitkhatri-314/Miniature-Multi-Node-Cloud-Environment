@@ -65,7 +65,8 @@ case "$cmd" in
         [ -z "$RAM" ] && RAM=128
 
         echo "[API] Received launch request: Instance '$NAME' with ${RAM}MB RAM."
-        DECISION=$(python3 "$SCHEDULER_BIN" "$NAME" "$RAM" 2>>"$AUDIT_LOG")
+        # scheduler.py writes directly to audit.log; discard duplicate stderr here
+        DECISION=$(python3 "$SCHEDULER_BIN" "$NAME" "$RAM" 2>/dev/null)
         STATUS=$?
 
         if [ $STATUS -ne 0 ] || [ -z "$DECISION" ]; then
