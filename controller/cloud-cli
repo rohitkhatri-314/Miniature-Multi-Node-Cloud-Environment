@@ -2,7 +2,15 @@
 # Miniature Cloud CLI (Nova / OpenStack style management CLI)
 # Run from ctrl-node or host
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# Locate scheduler script
+if [ -f "/opt/controller/scheduler.py" ]; then
+    SCHEDULER_BIN="/opt/controller/scheduler.py"
+elif [ -f "$DIR/scheduler.py" ]; then
+    SCHEDULER_BIN="$DIR/scheduler.py"
+else
+    SCHEDULER_BIN="$(which scheduler.py 2>/dev/null || echo '/opt/controller/scheduler.py')"
+fi
+
 AUDIT_LOG="/var/log/minicloud/audit.log"
 
 log() {
@@ -57,7 +65,7 @@ case "$cmd" in
         [ -z "$RAM" ] && RAM=128
 
         echo "[API] Received launch request: Instance '$NAME' with ${RAM}MB RAM."
-        DECISION=$(python3 "$DIR/scheduler.py" "$NAME" "$RAM")
+        DECISION=$(python3 "$SCHEDULER_BIN" "$NAME" "$RAM")
         STATUS=$?
 
         if [ $STATUS -ne 0 ] || [ -z "$DECISION" ]; then

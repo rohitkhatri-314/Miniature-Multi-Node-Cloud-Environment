@@ -30,6 +30,7 @@ EOF
 
     echo "[BOOTSTRAP] Setting up Controller CLI environment..."
     ln -sf /opt/controller/cloud-cli /usr/local/bin/cloud-cli
+    ln -sf /opt/controller/scheduler.py /usr/local/bin/scheduler.py
     chmod +x /opt/controller/cloud-cli 2>/dev/null || true
     chmod +x /opt/controller/scheduler.py 2>/dev/null || true
 
