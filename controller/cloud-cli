@@ -18,7 +18,7 @@ usage() {
     echo "  cloud-cli list                List active instances across all compute nodes"
     echo "  cloud-cli stop <node> <name>  Terminate an instance on a compute node"
     echo "  cloud-cli audit               View real-time security & scheduling audit trail"
-    echo "  cloud-cli stress <node> <mb>  Simulate high memory load on a node (to demo scheduler adaptation)"
+    echo "  cloud-cli stress <node> <mb>  Simulate high memory load on a specific node"
     echo "  cloud-cli unstress <node>     Release artificial load on a node"
     exit 1
 }
@@ -138,13 +138,17 @@ EOF
     stress)
         NODE="$2"
         MB="$3"
-        [ -z "$MB" ] && MB=500
+        [ -z "$MB" ] && MB=1500
         TARGET_IP="192.168.100.21"
         [ "$NODE" == "compute-02" ] && TARGET_IP="192.168.100.22"
 
-        echo "[STRESS] Simulating ${MB}MB memory and CPU load on $NODE..."
-        ssh root@$TARGET_IP "python3 -c 'import time; a = bytearray($MB * 1024 * 1024); time.sleep(300)' >/dev/null 2>&1 &"
-        echo "[STRESS] Load injected. Re-run 'cloud-cli nodes' or schedule a new instance to observe placement change."
+        echo "[STRESS] Simulating ${MB}MB memory and 45% CPU load specifically on $NODE..."
+        ssh root@$TARGET_IP <<EOF
+mkdir -p /opt/minicloud/stress
+echo "$MB" > /opt/minicloud/stress/stress_ram.txt
+echo "45.0" > /opt/minicloud/stress/stress_cpu.txt
+EOF
+        echo "[STRESS] Load injected into $NODE. Run 'cloud-cli nodes' to observe isolated metrics."
         ;;
 
     unstress)
@@ -152,9 +156,9 @@ EOF
         TARGET_IP="192.168.100.21"
         [ "$NODE" == "compute-02" ] && TARGET_IP="192.168.100.22"
 
-        echo "[UNSTRESS] Clearing stress processes on $NODE..."
-        ssh root@$TARGET_IP "pkill -f 'bytearray' 2>/dev/null || true"
-        echo "[UNSTRESS] Node recovered."
+        echo "[UNSTRESS] Clearing stress load on $NODE..."
+        ssh root@$TARGET_IP "rm -rf /opt/minicloud/stress"
+        echo "[UNSTRESS] Node $NODE returned to baseline."
         ;;
 
     audit)

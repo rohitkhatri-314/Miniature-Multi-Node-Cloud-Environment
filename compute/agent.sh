@@ -1,32 +1,55 @@
 #!/usr/bin/env bash
-# Telemetry Agent running on Compute Nodes
-# Exposes local metrics (Free RAM, CPU Load, Active Instances)
+# Isolated Telemetry Agent running on Compute Nodes
+# Calculates node-specific resource consumption (RAM allocation & CPU load)
 
-mkdir -p /var/log/minicloud /opt/minicloud/instances
+mkdir -p /var/log/minicloud /opt/minicloud/instances /opt/minicloud/stress
 
-# Helper script to export metrics on request or continuously update stats cache
+# Base capacity configured per virtual compute node (e.g. 4096 MB)
+NODE_TOTAL_RAM_MB=4096
+
 while true; do
-    # Total & Available Memory in MB
-    MEM_TOTAL=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')
-    MEM_AVAIL=$(grep MemAvailable /proc/meminfo | awk '{print int($2/1024)}')
-    
-    # 1-minute load average normalized by vCPU count
-    NPROC=$(nproc)
-    LOAD_1M=$(awk '{print $1}' /proc/loadavg)
-    CPU_PCT=$(python3 -c "print(round(($LOAD_1M / $NPROC) * 100, 2))" 2>/dev/null || echo "0.0")
+    # 1. Calculate active instance reservations on THIS compute node
+    RESERVED_RAM_MB=0
+    for meta in /opt/minicloud/instances/*/meta.json; do
+        if [ -f "$meta" ]; then
+            INST_RAM=$(jq -r '.ram_mb // 0' "$meta" 2>/dev/null || echo 0)
+            RESERVED_RAM_MB=$((RESERVED_RAM_MB + INST_RAM))
+        fi
+    done
 
-    # Count of running workloads on this node
+    # 2. Check node-specific simulated / stressed memory overhead
+    STRESS_RAM_MB=0
+    if [ -f /opt/minicloud/stress/stress_ram.txt ]; then
+        STRESS_RAM_MB=$(cat /opt/minicloud/stress/stress_ram.txt 2>/dev/null || echo 0)
+    fi
+
+    # 3. Calculate node-specific CPU utilization based on active processes in this node
+    # Counts CPU % consumed by processes running exclusively inside this container
+    LOCAL_CPU_PCT=$(ps -A -o %cpu | awk '{s+=$1} END {printf "%.2f", (s ? s : 0.0)}')
+    
+    # Add stress load if present
+    if [ -f /opt/minicloud/stress/stress_cpu.txt ]; then
+        ADD_CPU=$(cat /opt/minicloud/stress/stress_cpu.txt 2>/dev/null || echo 0)
+        LOCAL_CPU_PCT=$(python3 -c "print(round($LOCAL_CPU_PCT + $ADD_CPU, 2))" 2>/dev/null || echo "$LOCAL_CPU_PCT")
+    fi
+
+    TOTAL_USED_RAM=$((RESERVED_RAM_MB + STRESS_RAM_MB))
+    AVAIL_RAM=$((NODE_TOTAL_RAM_MB - TOTAL_USED_RAM))
+    if [ $AVAIL_RAM -lt 0 ]; then
+        AVAIL_RAM=0
+    fi
+
     ACTIVE_INSTANCES=$(ls -1 /opt/minicloud/instances 2>/dev/null | wc -l)
 
     cat <<EOF > /opt/minicloud/metrics.json
 {
   "node": "$(hostname)",
-  "mem_total_mb": $MEM_TOTAL,
-  "mem_available_mb": $MEM_AVAIL,
-  "cpu_util_pct": $CPU_PCT,
+  "mem_total_mb": $NODE_TOTAL_RAM_MB,
+  "mem_available_mb": $AVAIL_RAM,
+  "cpu_util_pct": $LOCAL_CPU_PCT,
   "active_instances": $ACTIVE_INSTANCES,
   "status": "healthy"
 }
 EOF
-    sleep 2
+    sleep 1
 done
